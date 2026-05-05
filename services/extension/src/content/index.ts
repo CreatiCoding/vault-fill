@@ -24,15 +24,16 @@ function nativeInputValue(el: HTMLInputElement, value: string) {
 
 // ── Field detection ───────────────────────────────────────────────────────────
 
-function findUsernameField(): HTMLInputElement | null {
-  return (
-    (document.querySelector(
-      'input[autocomplete="username"], input[autocomplete="email"], ' +
-      'input[type="email"], input[name="username"], input[name="email"], ' +
-      'input[name="login"], input[id*="user"], input[id*="email"]',
-    ) as HTMLInputElement | null) ??
-    (document.querySelector('input[type="text"]') as HTMLInputElement | null)
-  )
+function findUsernameField(allowTextFallback: boolean): HTMLInputElement | null {
+  const specific = document.querySelector(
+    'input[autocomplete="username"], input[autocomplete="email"], ' +
+    'input[type="email"], input[name="username"], input[name="email"], ' +
+    'input[name="login"], input[id*="user"], input[id*="email"]',
+  ) as HTMLInputElement | null
+  if (specific) return specific
+  // Fall back to generic text input only when a password field is present (= login form)
+  if (allowTextFallback) return document.querySelector('input[type="text"]') as HTMLInputElement | null
+  return null
 }
 
 function findPasswordField(): HTMLInputElement | null {
@@ -42,8 +43,8 @@ function findPasswordField(): HTMLInputElement | null {
 // ── Fill ──────────────────────────────────────────────────────────────────────
 
 function doFill(payload: FillPayload) {
-  const usernameEl = findUsernameField()
   const passwordEl = findPasswordField()
+  const usernameEl = findUsernameField(!!passwordEl)
   if (usernameEl && payload.username) nativeInputValue(usernameEl, payload.username)
   if (passwordEl && payload.password) nativeInputValue(passwordEl, payload.password)
 }
@@ -55,9 +56,9 @@ let autoFilled = false
 function tryAutoFill() {
   if (autoFilled) return
   const passEl = findPasswordField()
-  if (!passEl) return  // no password field = not a login form, skip
-  const userEl = findUsernameField()
-  if (userEl?.value || passEl.value) return  // already has content
+  const userEl = findUsernameField(!!passEl)
+  if (!passEl && !userEl) return  // nothing to fill
+  if (userEl?.value || passEl?.value) return  // already has content
 
   chrome.runtime.sendMessage(
     { type: 'GET_MATCHING_CREDENTIALS', payload: { tabUrl: window.location.href } },
