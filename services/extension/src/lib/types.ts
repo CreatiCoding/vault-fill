@@ -27,6 +27,7 @@ export type Message =
   | { type: 'FILL_CREDENTIALS'; payload: FillRequest }
   | { type: 'GET_BADGE_COUNT'; payload: { tabUrl: string } }
   | { type: 'WRITE_CREDENTIAL'; payload: { path: string; fields: Record<string, string> } }
+  | { type: 'GET_FULL_CREDENTIAL'; path: string }
 
 export type MessageResponse<T = unknown> =
   | { ok: true; data: T }

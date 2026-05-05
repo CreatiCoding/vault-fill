@@ -111,37 +111,15 @@ async function handleMessage(msg: Message): Promise<MessageResponse> {
       return { ok: true, data: null }
     }
 
+    case 'GET_FULL_CREDENTIAL': {
+      const settings = await getSettings()
+      if (!settings) return { ok: false, error: 'Vault not configured' }
+      const all = await listAllCredentials(settings)
+      const cred = all.find((c) => c.path === msg.path) ?? null
+      return { ok: true, data: cred }
+    }
+
     default:
       return { ok: false, error: 'Unknown message type' }
   }
 }
-
-// Full credential (with password) — only for content scripts
-chrome.runtime.onMessage.addListener(
-  (
-    message: { type: 'GET_FULL_CREDENTIAL'; path: string },
-    sender,
-    sendResponse: (r: MessageResponse<Credential | null>) => void,
-  ) => {
-    if (message.type !== 'GET_FULL_CREDENTIAL') return false
-    if (!sender.tab) {
-      sendResponse({ ok: false, error: 'Not authorized' })
-      return false
-    }
-    getSettings()
-      .then(async (settings: VaultSettings | null) => {
-        if (!settings) {
-          sendResponse({ ok: false, error: 'Not configured' })
-          return
-        }
-        const all = await listAllCredentials(settings)
-        const cred = all.find((c) => c.path === message.path) ?? null
-        sendResponse({ ok: true, data: cred })
-      })
-      .catch((err: unknown) => {
-        const msg = err instanceof Error ? err.message : String(err)
-        sendResponse({ ok: false, error: msg })
-      })
-    return true
-  },
-)
