@@ -11,12 +11,10 @@ export function App() {
   const [tabUrl, setTabUrl] = useState('')
 
   useEffect(() => {
-    // Get current tab URL
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       setTabUrl(tabs[0]?.url ?? '')
     })
 
-    // Load settings from background
     chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }, (res) => {
       if (res?.ok && res.data) {
         setSettings(res.data as VaultSettings)
@@ -50,10 +48,5 @@ export function App() {
     return <Setup onSaved={handleSaved} />
   }
 
-  return (
-    <CredentialList
-      tabUrl={tabUrl}
-      onLogout={handleLogout}
-    />
-  )
+  return <CredentialList tabUrl={tabUrl} onLogout={handleLogout} />
 }

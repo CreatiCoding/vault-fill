@@ -47,9 +47,11 @@ async function listPaths(
     )
     const paths: string[] = []
     for (const key of result.data.keys) {
-      // Use filter(Boolean) to avoid double-slashes when prefix is empty
       if (key.endsWith('/')) {
-        const sub = await listPaths(settings, [prefix, key.slice(0, -1)].filter(Boolean).join('/'))
+        const sub = await listPaths(
+          settings,
+          [prefix, key.slice(0, -1)].filter(Boolean).join('/'),
+        )
         paths.push(...sub)
       } else {
         paths.push([prefix, key].filter(Boolean).join('/'))
@@ -61,55 +63,55 @@ async function listPaths(
   }
 }
 
-/** Read a single KV v2 secret and convert to Credential */
+/** Read a single KV v2 secret and convert to Credential.
+ *  Shows any secret that has at least one field — not limited to username/password. */
 async function readCredential(
   settings: VaultSettings,
   path: string,
 ): Promise<Credential | null> {
   const mount = settings.mountPath
-  // path is like "web/github.com", mount is "secret"
   try {
-    const result = await vaultFetch<KVSecret>(
-      settings,
-      `${mount}/data/${path}`,
-    )
+    const result = await vaultFetch<KVSecret>(settings, `${mount}/data/${path}`)
     const d = result.data.data
-    if (!d['username'] && !d['password']) return null
+    if (!d || Object.keys(d).length === 0) return null
     return {
       path: `${mount}/data/${path}`,
       name: path.split('/').pop() ?? path,
-      username: d['username'] ?? '',
-      password: d['password'] ?? '',
-      url: d['url'],
+      username: d['username'] ?? d['user'] ?? d['email'] ?? undefined,
+      password: d['password'] ?? d['pass'] ?? d['secret'] ?? undefined,
+      url: d['url'] ?? undefined,
+      fields: d,
     }
   } catch {
     return null
   }
 }
 
-/** List all credentials from the Vault (shallow, first-level listing) */
+/** List all credentials from the Vault */
 export async function listAllCredentials(
   settings: VaultSettings,
 ): Promise<Credential[]> {
   const paths = await listPaths(settings, '')
   const results = await Promise.all(
-    paths.map((p) => readCredential(settings, p.replace(/^\//, ''))),
+    paths.map((p) => readCredential(settings, p)),
   )
   return results.filter((c): c is Credential => c !== null)
 }
 
-/** Search credentials by query string (matches name, username, url) */
+/** Search credentials by query string */
 export async function searchCredentials(
   settings: VaultSettings,
   query: string,
 ): Promise<Credential[]> {
   const all = await listAllCredentials(settings)
+  if (!query.trim()) return all
   const q = query.toLowerCase()
   return all.filter(
     (c) =>
       c.name.toLowerCase().includes(q) ||
-      c.username.toLowerCase().includes(q) ||
-      (c.url?.toLowerCase().includes(q) ?? false),
+      (c.username?.toLowerCase().includes(q) ?? false) ||
+      (c.url?.toLowerCase().includes(q) ?? false) ||
+      Object.values(c.fields).some((v) => v.toLowerCase().includes(q)),
   )
 }
 
@@ -121,6 +123,19 @@ export async function getMatchingCredentials(
   const all = await listAllCredentials(settings)
   const { matchCredentials } = await import('./matcher')
   return matchCredentials(all, tabUrl)
+}
+
+/** Write (create or update) a secret in Vault KV v2 */
+export async function writeCredential(
+  settings: VaultSettings,
+  path: string,
+  fields: Record<string, string>,
+): Promise<void> {
+  const mount = settings.mountPath
+  await vaultFetch(settings, `${mount}/data/${path}`, {
+    method: 'POST',
+    body: JSON.stringify({ data: fields }),
+  })
 }
 
 /** Verify connection by checking token capabilities */

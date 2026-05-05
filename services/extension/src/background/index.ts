@@ -2,11 +2,11 @@ import { getSettings, saveSettings } from '../lib/storage'
 import {
   searchCredentials,
   getMatchingCredentials,
-  testConnection,
+  listAllCredentials,
+  writeCredential,
 } from '../lib/vault'
 import type { Message, MessageResponse, Credential, VaultSettings } from '../lib/types'
 
-// Update badge when active tab changes
 async function updateBadge(tabId: number, url: string) {
   const settings = await getSettings()
   if (!settings) {
@@ -17,7 +17,7 @@ async function updateBadge(tabId: number, url: string) {
     const matches = await getMatchingCredentials(settings, url)
     if (matches.length > 0) {
       chrome.action.setBadgeText({ text: String(matches.length), tabId })
-      chrome.action.setBadgeBackgroundColor({ color: '#4f46e5', tabId })
+      chrome.action.setBadgeBackgroundColor({ color: '#f0b429', tabId })
     } else {
       chrome.action.setBadgeText({ text: '', tabId })
     }
@@ -37,7 +37,6 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   }
 })
 
-// Central message handler — secrets never leave the background script
 chrome.runtime.onMessage.addListener(
   (
     message: Message,
@@ -50,7 +49,7 @@ chrome.runtime.onMessage.addListener(
         const msg = err instanceof Error ? err.message : String(err)
         sendResponse({ ok: false, error: msg })
       })
-    return true // keep channel open for async response
+    return true
   },
 )
 
@@ -62,7 +61,12 @@ async function handleMessage(msg: Message): Promise<MessageResponse> {
     }
 
     case 'SAVE_SETTINGS': {
-      await saveSettings(msg.payload)
+      if (msg.payload) {
+        await saveSettings(msg.payload)
+      } else {
+        const { clearSettings } = await import('../lib/storage')
+        await clearSettings()
+      }
       return { ok: true, data: null }
     }
 
@@ -70,8 +74,8 @@ async function handleMessage(msg: Message): Promise<MessageResponse> {
       const settings = await getSettings()
       if (!settings) return { ok: false, error: 'Vault not configured' }
       const results = await searchCredentials(settings, msg.payload.query)
-      // Strip passwords from search results — only send on explicit fill
-      const safe = results.map(({ password: _pw, ...rest }) => rest)
+      // Strip passwords from search results
+      const safe = results.map(({ password: _pw, fields: _f, ...rest }) => rest)
       return { ok: true, data: safe }
     }
 
@@ -79,12 +83,11 @@ async function handleMessage(msg: Message): Promise<MessageResponse> {
       const settings = await getSettings()
       if (!settings) return { ok: false, error: 'Vault not configured' }
       const results = await getMatchingCredentials(settings, msg.payload.tabUrl)
-      const safe = results.map(({ password: _pw, ...rest }) => rest)
+      const safe = results.map(({ password: _pw, fields: _f, ...rest }) => rest)
       return { ok: true, data: safe }
     }
 
     case 'FILL_CREDENTIALS': {
-      // Forward fill request to the active tab's content script
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
       if (!tab?.id) return { ok: false, error: 'No active tab' }
       await chrome.tabs.sendMessage(tab.id, {
@@ -101,13 +104,19 @@ async function handleMessage(msg: Message): Promise<MessageResponse> {
       return { ok: true, data: results.length }
     }
 
+    case 'WRITE_CREDENTIAL': {
+      const settings = await getSettings()
+      if (!settings) return { ok: false, error: 'Vault not configured' }
+      await writeCredential(settings, msg.payload.path, msg.payload.fields)
+      return { ok: true, data: null }
+    }
+
     default:
       return { ok: false, error: 'Unknown message type' }
   }
 }
 
-// Expose getFullCredential only to content scripts via a separate channel
-// so passwords are never exposed to the popup directly
+// Full credential (with password) — only for content scripts
 chrome.runtime.onMessage.addListener(
   (
     message: { type: 'GET_FULL_CREDENTIAL'; path: string },
@@ -115,7 +124,6 @@ chrome.runtime.onMessage.addListener(
     sendResponse: (r: MessageResponse<Credential | null>) => void,
   ) => {
     if (message.type !== 'GET_FULL_CREDENTIAL') return false
-    // Only content scripts can request this (they have a tab sender)
     if (!sender.tab) {
       sendResponse({ ok: false, error: 'Not authorized' })
       return false
@@ -126,7 +134,6 @@ chrome.runtime.onMessage.addListener(
           sendResponse({ ok: false, error: 'Not configured' })
           return
         }
-        const { listAllCredentials } = await import('../lib/vault')
         const all = await listAllCredentials(settings)
         const cred = all.find((c) => c.path === message.path) ?? null
         sendResponse({ ok: true, data: cred })
