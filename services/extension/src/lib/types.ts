@@ -5,11 +5,12 @@ export interface VaultSettings {
 }
 
 export interface Credential {
-  path: string       // full secret path, e.g. "secret/data/web/github.com"
-  name: string       // display name derived from path leaf
-  username?: string  // value of "username" field if present
-  password?: string  // value of "password" field if present
-  url?: string       // value of "url" field if present
+  path: string           // full secret path, e.g. "secret/data/web/github.com"
+  relativePath: string   // path relative to mount, e.g. "web/github.com" (used for writes)
+  name: string           // display name derived from path leaf
+  username?: string      // value of "username" field if present
+  password?: string      // value of "password" field if present
+  url?: string           // value of "url" field if present
   fields: Record<string, string>  // all fields in the secret
 }
 

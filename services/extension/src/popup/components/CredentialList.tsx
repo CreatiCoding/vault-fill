@@ -93,7 +93,7 @@ export function CredentialList({ tabUrl, onLogout }: Props) {
       (res) => {
         if (!res?.ok || !res.data) { showToast('Failed to fetch credential'); return }
         const full = res.data as Credential
-        setEditCred({ path: full.path, fields: full.fields })
+        setEditCred({ path: full.relativePath, fields: full.fields })
       },
     )
   }

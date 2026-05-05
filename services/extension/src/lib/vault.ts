@@ -76,6 +76,7 @@ async function readCredential(
     if (!d || Object.keys(d).length === 0) return null
     return {
       path: `${mount}/data/${path}`,
+      relativePath: path,
       name: path.split('/').pop() ?? path,
       username: d['username'] ?? d['user'] ?? d['email'] ?? undefined,
       password: d['password'] ?? d['pass'] ?? d['secret'] ?? undefined,
