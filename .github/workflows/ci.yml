@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - name: Install dependencies
+        run: yarn install --immutable
+      - name: Lint
+        run: yarn lint
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - name: Install dependencies
+        run: yarn install --immutable
+      - name: Type check
+        run: yarn typecheck
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - name: Install dependencies
+        run: yarn install --immutable
+      - name: Run unit tests
+        run: yarn test
+
+  e2e-test:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - name: Install dependencies
+        run: yarn install --immutable
+      - name: Install Playwright browsers
+        run: yarn workspace @hello-world/service exec playwright install --with-deps chromium
+      - name: Build
+        run: yarn build
+      - name: Run E2E tests
+        run: yarn e2e
+
+  docker-build:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t hello-world -f services/hello-world/Dockerfile .

@@ -1,0 +1,17 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Dokploy
+        run: |
+          curl -f -X POST "https://dokploy.creco.dev/api/application.deploy" \
+            -H "x-api-key: ${{ secrets.DOKPLOY_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"applicationId": "xxxxxxx-xxxxxxxx"}'
