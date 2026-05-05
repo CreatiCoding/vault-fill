@@ -1,24 +1,163 @@
-# vibe-project-template
+# vault-fill
 
-Yarn Berry PnP + Next.js 16 + Tailwind 4 기반의 모노레포 프로젝트 템플릿.
+HashiCorp Vault를 백엔드로 사용하는 브라우저 비밀번호 자동완성 Chrome 확장 프로그램.
 
-Dokploy 배포를 전제로 설계되었으며, Claude Code와 함께 빠르게 프로젝트를 시작할 수 있습니다.
+Yarn Berry PnP 기반 모노레포로 구성되어 있습니다.
 
-## 빌드 원칙
+---
 
-### Next.js `output: "standalone"` 사용 금지
+## 기능
 
-이 템플릿은 Yarn Berry PnP를 패키지 매니저로 사용합니다.
+- Vault KV v2에 저장된 크리덴셜을 브라우저 로그인 폼에 자동 입력
+- 현재 탭 URL과 시크릿의 `url` 필드를 매칭해 관련 크리덴셜 자동 표시
+- 팝업 UI에서 검색 및 클립보드 복사 지원
+- 별도 비밀번호 DB 없이 기존 Vault를 그대로 활용
 
-Next.js의 `standalone` 모드는 **`node_modules` 기반 파일 트레이싱**에 의존하는데, PnP 환경에서는 `node_modules`가 존재하지 않고 의존성이 `.pnp.cjs` + zip 아카이브로 관리됩니다. 이로 인해 다음과 같은 문제가 발생합니다:
+---
 
-1. **standalone 빌드 실패** — `outputFileTracingRoot`를 설정하더라도, PnP의 가상 패키지 경로(`__virtual__`)를 standalone 트레이서가 올바르게 추적하지 못합니다.
-2. **Docker 런타임 크래시** — 빌드가 성공하더라도, standalone 출력의 `server.js`가 PnP 없이 의존성을 찾지 못해 컨테이너 시작 시 즉시 크래시합니다.
-3. **모노레포 경로 불일치** — 워크스페이스 구조에서 standalone 출력의 디렉토리 구조가 실제 프로젝트 구조와 달라, `COPY` 경로 매핑이 깨집니다.
+## Vault 시크릿 구조
 
-#### 올바른 Docker 빌드 방식
+확장이 인식하는 KV v2 포맷:
 
-standalone 대신, 멀티스테이지 없이 PnP 의존성 구조를 그대로 활용합니다:
+```
+secret/data/web/github.com
+  username = "myid"
+  password = "mypassword"
+  url      = "https://github.com"   ← URL 매칭 기준
+```
+
+기존 시크릿에 `url` 필드만 추가하면 동작합니다.
+
+---
+
+## 프로젝트 구조
+
+```
+vault-fill/
+├── package.json              # 루트 워크스페이스 (yarn berry 4.6)
+├── .yarnrc.yml               # PnP 설정
+└── services/
+    └── extension/            # Chrome Extension (Manifest V3)
+        ├── src/
+        │   ├── manifest.json
+        │   ├── background/   # 서비스 워커 — Vault API, 메시지 허브
+        │   ├── content/      # 폼 감지 + 자동완성 주입
+        │   ├── popup/        # Preact UI (Matched / Search 탭)
+        │   └── lib/          # vault.ts, storage.ts, matcher.ts, types.ts
+        ├── src/__tests__/
+        │   ├── unit/         # vitest 유닛 테스트 (38개)
+        │   └── e2e/          # Playwright E2E 테스트
+        ├── vite.config.ts
+        ├── vitest.config.ts
+        └── playwright.config.ts
+```
+
+---
+
+## 시작하기
+
+### 요구사항
+
+- Node.js 22+
+- Corepack 활성화: `corepack enable`
+
+### 설치
+
+```bash
+corepack yarn install
+```
+
+### 빌드
+
+```bash
+corepack yarn build
+```
+
+`services/extension/dist/` 디렉토리가 생성됩니다.
+
+### 크롬에 설치
+
+1. `chrome://extensions` 접속
+2. 우측 상단 **개발자 모드** 활성화
+3. **압축해제된 확장 프로그램을 로드합니다** 클릭
+4. `services/extension/dist/` 디렉토리 선택
+
+---
+
+## 개발
+
+```bash
+# watch 모드 빌드 (저장 시 자동 재빌드)
+corepack yarn dev
+```
+
+---
+
+## 테스트
+
+### 유닛 테스트 (vitest)
+
+```bash
+corepack yarn test            # 단발 실행
+corepack yarn test:watch      # watch 모드
+corepack yarn test:ui         # 브라우저 UI
+corepack yarn test:coverage   # 커버리지 리포트
+```
+
+| 파일 | 테스트 수 | 내용 |
+|------|----------|------|
+| `matcher.test.ts` | 11 | URL 매칭 로직, 점수 정렬 |
+| `storage.test.ts` | 5 | chrome.storage 래퍼 |
+| `vault.test.ts` | 8 | Vault KV API (fetch mock) |
+| `Setup.test.tsx` | 6 | 설정 폼 컴포넌트 |
+| `CredentialList.test.tsx` | 8 | 크리덴셜 목록 컴포넌트 |
+
+### E2E 테스트 (Playwright)
+
+빌드 후 실제 Chrome에 익스텐션을 로드해 실행합니다.
+
+```bash
+corepack yarn test:e2e        # 빌드 + E2E 실행
+corepack yarn test:e2e:ui     # Playwright UI 모드
+```
+
+### 전체 테스트
+
+```bash
+corepack yarn test:all
+```
+
+---
+
+## 기술 스택
+
+| 항목 | 선택 |
+|------|------|
+| 플랫폼 | Chrome Extension (Manifest V3) |
+| UI | Preact |
+| 빌드 | Vite + vite-plugin-web-extension |
+| Vault 통신 | Vault HTTP API (KV v2) |
+| 저장소 | `chrome.storage.local` |
+| 패키지 매니저 | Yarn Berry 4.6 (PnP) |
+| 유닛 테스트 | vitest + happy-dom + jest-webextension-mock |
+| E2E 테스트 | Playwright |
+
+---
+
+## 보안 모델
+
+- 비밀번호는 백그라운드 서비스 워커에서만 보유 — 팝업에는 전달하지 않음
+- 자동완성 시 백그라운드가 크리덴셜을 직접 콘텐츠 스크립트에 주입
+- 토큰은 `chrome.storage.local` 저장 (HTTPS Vault 엔드포인트만 허용)
+- 팝업이 닫히면 메모리 내 시크릿 즉시 폐기
+
+---
+
+## 빌드 원칙 (Yarn Berry PnP)
+
+### Docker 배포 시
+
+standalone 모드 대신 PnP 의존성 구조를 그대로 활용합니다:
 
 ```dockerfile
 FROM node:22-alpine
@@ -27,19 +166,11 @@ WORKDIR /app
 
 COPY package.json yarn.lock .yarnrc.yml ./
 COPY .yarn .yarn
-COPY services/web/package.json services/web/package.json
+COPY services/extension/package.json services/extension/package.json
 COPY tsconfig.json ./
-COPY services/web services/web
+COPY services/extension services/extension
 RUN yarn install --immutable
-RUN yarn workspace @my-app/service build
-
-ENV NODE_ENV=production
-EXPOSE 3000
-CMD ["yarn", "workspace", "@my-app/service", "start"]
+RUN yarn workspace @vault-fill/extension build
 ```
 
-핵심: `.pnp.cjs`, `.yarn/cache` 등 PnP 런타임이 유지된 상태에서 `yarn start`를 실행합니다. standalone처럼 런타임을 분리할 필요가 없습니다.
-
-### Supply Chain 보안
-
-`.yarnrc.yml`에 `npmMinimalAgeGate: "7d"` 설정이 적용되어 있습니다. npm에 게시된 지 7일 미만인 패키지 버전은 설치 대상에서 제외되어, 악성 패키지가 올라온 직후 설치되는 supply chain 공격을 방어합니다.
+`.pnp.cjs`, `.yarn/cache` 등 PnP 런타임이 유지된 상태에서 실행해야 합니다.
