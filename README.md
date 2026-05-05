@@ -228,6 +228,121 @@ cd services/extension && zip -r vault-fill.zip dist/
 
 ---
 
+### CLI 배포 (chrome-webstore-upload-cli)
+
+대시보드 UI 대신 CLI로 업로드 및 게시할 수 있습니다. CI/CD 파이프라인에 적합합니다.
+
+#### 패키지 설치
+
+```bash
+npm install -g chrome-webstore-upload-cli
+```
+
+#### Google Cloud 인증 설정
+
+Chrome Web Store API는 OAuth2를 사용합니다. 최초 1회 설정이 필요합니다.
+
+1. [Google Cloud Console](https://console.cloud.google.com) → API 및 서비스 → 사용자 인증 정보
+2. **OAuth 2.0 클라이언트 ID** 생성 (애플리케이션 유형: **데스크톱 앱**)
+3. `CLIENT_ID`, `CLIENT_SECRET` 메모
+4. Refresh Token 발급:
+
+```bash
+npx chrome-webstore-upload-cli@latest init
+# → 브라우저가 열리고 Google 계정 인증 후 REFRESH_TOKEN 출력
+```
+
+5. 환경변수 저장 (`.env` 또는 CI secrets):
+
+```bash
+EXTENSION_ID=abcdefghijklmnopqrstuvwxyz  # 대시보드 URL의 확장 ID
+CLIENT_ID=xxxx.apps.googleusercontent.com
+CLIENT_SECRET=xxxx
+REFRESH_TOKEN=xxxx
+```
+
+#### 업로드 (심사 대기 상태로만 등록)
+
+```bash
+corepack yarn build
+cd services/extension && zip -r vault-fill.zip dist/
+
+chrome-webstore-upload upload \
+  --source vault-fill.zip \
+  --extension-id $EXTENSION_ID \
+  --client-id $CLIENT_ID \
+  --client-secret $CLIENT_SECRET \
+  --refresh-token $REFRESH_TOKEN
+```
+
+#### 업로드 + 즉시 게시
+
+```bash
+chrome-webstore-upload upload \
+  --source vault-fill.zip \
+  --extension-id $EXTENSION_ID \
+  --client-id $CLIENT_ID \
+  --client-secret $CLIENT_SECRET \
+  --refresh-token $REFRESH_TOKEN \
+  --auto-publish
+```
+
+#### package.json 스크립트로 등록
+
+`services/extension/package.json`에 추가:
+
+```json
+{
+  "scripts": {
+    "release": "yarn build && cd dist && zip -r ../vault-fill.zip . && cd .. && chrome-webstore-upload upload --source vault-fill.zip --extension-id $EXTENSION_ID --client-id $CLIENT_ID --client-secret $CLIENT_SECRET --refresh-token $REFRESH_TOKEN --auto-publish"
+  }
+}
+```
+
+```bash
+EXTENSION_ID=xxx CLIENT_ID=xxx CLIENT_SECRET=xxx REFRESH_TOKEN=xxx corepack yarn workspace @vault-fill/extension release
+```
+
+#### GitHub Actions 예시
+
+```yaml
+# .github/workflows/release.yml
+name: Release to Chrome Web Store
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: corepack enable && corepack yarn install --immutable
+
+      - run: corepack yarn build
+
+      - run: cd services/extension && zip -r vault-fill.zip dist/
+
+      - run: npx chrome-webstore-upload-cli upload
+          --source services/extension/vault-fill.zip
+          --extension-id ${{ secrets.EXTENSION_ID }}
+          --client-id ${{ secrets.CLIENT_ID }}
+          --client-secret ${{ secrets.CLIENT_SECRET }}
+          --refresh-token ${{ secrets.REFRESH_TOKEN }}
+          --auto-publish
+```
+
+> Secrets는 GitHub 레포 → Settings → Secrets and variables → Actions 에서 등록합니다.
+
+---
+
 ## 빌드 원칙 (Yarn Berry PnP)
 
 ### Docker 배포 시
