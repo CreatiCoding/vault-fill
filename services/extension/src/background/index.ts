@@ -4,6 +4,7 @@ import {
   getMatchingCredentials,
   listAllCredentials,
   writeCredential,
+  deleteCredential,
 } from '../lib/vault'
 import type { Message, MessageResponse, Credential, VaultSettings } from '../lib/types'
 
@@ -108,6 +109,13 @@ async function handleMessage(msg: Message): Promise<MessageResponse> {
       const settings = await getSettings()
       if (!settings) return { ok: false, error: 'Vault not configured' }
       await writeCredential(settings, msg.payload.path, msg.payload.fields)
+      return { ok: true, data: null }
+    }
+
+    case 'DELETE_CREDENTIAL': {
+      const settings = await getSettings()
+      if (!settings) return { ok: false, error: 'Vault not configured' }
+      await deleteCredential(settings, msg.payload.relativePath)
       return { ok: true, data: null }
     }
 

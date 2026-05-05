@@ -4,6 +4,7 @@ import { NewCredential } from './NewCredential'
 
 // Safe credential — password and full fields stripped before leaving background
 interface SafeCredential extends Omit<Credential, 'password' | 'fields'> {}
+// SafeCredential still includes relativePath from Credential
 
 interface Props {
   tabUrl: string
@@ -83,6 +84,19 @@ export function CredentialList({ tabUrl, onLogout }: Props) {
         const val = full.fields[fieldKey] ?? ''
         if (!val) { showToast(`No "${fieldKey}" field`); return }
         navigator.clipboard.writeText(val).then(() => showToast(`Copied: ${fieldKey}`))
+      },
+    )
+  }
+
+  function handleDelete(cred: SafeCredential) {
+    if (!confirm(`Delete "${cred.name}"?\nThis cannot be undone.`)) return
+    chrome.runtime.sendMessage(
+      { type: 'DELETE_CREDENTIAL', payload: { relativePath: cred.relativePath } },
+      (res) => {
+        if (!res?.ok) { showToast(res?.error ?? 'Failed to delete'); return }
+        showToast(`Deleted: ${cred.name}`)
+        setMatched((prev) => prev.filter((c) => c.path !== cred.path))
+        setSearchResults((prev) => prev.filter((c) => c.path !== cred.path))
       },
     )
   }
@@ -218,6 +232,7 @@ export function CredentialList({ tabUrl, onLogout }: Props) {
             onFill={handleFill}
             onCopyField={handleCopyField}
             onEdit={handleEdit}
+            onDelete={handleDelete}
           />
         ))}
       </div>
@@ -232,9 +247,10 @@ interface ItemProps {
   onFill: (c: SafeCredential) => void
   onCopyField: (c: SafeCredential, key: string) => void
   onEdit: (c: SafeCredential) => void
+  onDelete: (c: SafeCredential) => void
 }
 
-function CredentialItem({ cred, onFill, onCopyField, onEdit }: ItemProps) {
+function CredentialItem({ cred, onFill, onCopyField, onEdit, onDelete }: ItemProps) {
   const subtitle = cred.username ?? cred.url ?? cred.path
   return (
     <div style={s.item}>
@@ -253,6 +269,9 @@ function CredentialItem({ cred, onFill, onCopyField, onEdit }: ItemProps) {
         </button>
         <button style={s.iconBtn} title="Edit" onClick={() => onEdit(cred)}>
           <EditIcon />
+        </button>
+        <button style={{ ...s.iconBtn, ...s.deleteBtn }} title="Delete" onClick={() => onDelete(cred)}>
+          <TrashIcon />
         </button>
         <button style={{ ...s.iconBtn, ...s.fillBtn }} title="Autofill" onClick={() => onFill(cred)}>
           <FillIcon />
@@ -280,6 +299,9 @@ function KeyIcon() {
 function EditIcon() {
   return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
 }
+function TrashIcon() {
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+}
 function FillIcon() {
   return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
 }
@@ -306,6 +328,7 @@ const s: Record<string, preact.JSX.CSSProperties> = {
   itemUser: { display: 'block', color: 'var(--muted)', fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
   itemActions: { display: 'flex', gap: '4px', flexShrink: 0 },
   iconBtn: { background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: '6px', padding: '5px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  deleteBtn: { color: 'var(--danger)' },
   fillBtn: { background: 'var(--accent)', borderColor: 'var(--accent)', color: '#fff' },
   toast: { position: 'fixed', bottom: '12px', left: '50%', transform: 'translateX(-50%)', background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', padding: '6px 14px', borderRadius: '20px', fontSize: '12px', whiteSpace: 'nowrap', zIndex: 100 },
 }

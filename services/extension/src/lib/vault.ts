@@ -139,6 +139,17 @@ export async function writeCredential(
   })
 }
 
+/** Delete a secret and all its versions from Vault KV v2 */
+export async function deleteCredential(
+  settings: VaultSettings,
+  relativePath: string,
+): Promise<void> {
+  const mount = settings.mountPath
+  await vaultFetch(settings, `${mount}/metadata/${relativePath}`, {
+    method: 'DELETE',
+  })
+}
+
 /** Verify connection by checking token capabilities */
 export async function testConnection(settings: VaultSettings): Promise<void> {
   await vaultFetch(settings, 'auth/token/lookup-self')
