@@ -12,7 +12,8 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "yarn build && playwright test",
     "test:e2e:ui": "yarn build && playwright test --ui",
-    "test:all": "yarn test && yarn test:e2e"
+    "test:all": "yarn test && yarn test:e2e",
+    "zip": "yarn build && cd dist && zip -r ../vault-fill-$npm_package_version.zip . && echo \"\\nPacked: vault-fill-$npm_package_version.zip\""
   },
   "dependencies": {
     "preact": "^10.25.0"

@@ -28,3 +28,7 @@ services/hello-world/scripts/.env
 # Test results
 playwright-report/
 test-results/
+
+# Extension build artifacts
+services/extension/dist/
+services/extension/*.zip
