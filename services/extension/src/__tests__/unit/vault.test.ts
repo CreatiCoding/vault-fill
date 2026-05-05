@@ -34,11 +34,11 @@ describe('vault', () => {
   describe('listAllCredentials', () => {
     it('returns credentials from a nested path', async () => {
       globalThis.fetch = mockFetch({
-        // LIST /  → keys: ['web/']
+        // LIST root
         'secret/metadata/': { data: { keys: ['web/'] } },
-        // LIST /web  → double-slash because prefix becomes '/web'
-        'secret/metadata//web': { data: { keys: ['github.com'] } },
-        // READ web/github.com (leading slash stripped by readCredential)
+        // LIST web  → no double-slash after fix
+        'secret/metadata/web': { data: { keys: ['github.com'] } },
+        // READ web/github.com
         'secret/data/web/github.com': {
           data: {
             data: { username: 'myuser', password: 'mypass', url: 'https://github.com' },

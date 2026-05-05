@@ -47,11 +47,12 @@ async function listPaths(
     )
     const paths: string[] = []
     for (const key of result.data.keys) {
+      // Use filter(Boolean) to avoid double-slashes when prefix is empty
       if (key.endsWith('/')) {
-        const sub = await listPaths(settings, `${prefix}/${key.slice(0, -1)}`)
+        const sub = await listPaths(settings, [prefix, key.slice(0, -1)].filter(Boolean).join('/'))
         paths.push(...sub)
       } else {
-        paths.push(`${prefix}/${key}`)
+        paths.push([prefix, key].filter(Boolean).join('/'))
       }
     }
     return paths
