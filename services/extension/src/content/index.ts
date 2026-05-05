@@ -40,16 +40,16 @@ function doFill(payload: FillPayload) {
   const usernameEl = findUsernameField()
   const passwordEl = findPasswordField()
 
-  if (usernameEl) {
+  // Only fill a field if the corresponding value is non-empty
+  if (usernameEl && payload.username) {
     usernameEl.focus()
     nativeInputValue(usernameEl, payload.username)
   }
-  if (passwordEl) {
+  if (passwordEl && payload.password) {
     passwordEl.focus()
     nativeInputValue(passwordEl, payload.password)
   }
 
-  // Return focus to username field for better UX
   usernameEl?.focus()
 }
 

@@ -62,15 +62,12 @@ export function CredentialList({ tabUrl, onLogout }: Props) {
       (res) => {
         if (!res?.ok || !res.data) { showToast('Failed to fetch credential'); return }
         const full = res.data as Credential
-        if (!full.username && !full.password) {
-          showToast('No username/password field to fill')
-          return
-        }
         chrome.runtime.sendMessage({
           type: 'FILL_CREDENTIALS',
           payload: { username: full.username ?? '', password: full.password ?? '' },
         })
-        showToast(`Filled: ${full.username ?? '(no username)'}`)
+        const label = full.username ?? full.url ?? full.name
+        showToast(`Filled: ${label}`)
         window.close()
       },
     )
