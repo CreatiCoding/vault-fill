@@ -25,6 +25,7 @@ export function CredentialList({ tabUrl, onLogout }: Props) {
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
   const [showNew, setShowNew] = useState(false)
+  const [editCred, setEditCred] = useState<{ path: string; fields: Record<string, string> } | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -86,6 +87,30 @@ export function CredentialList({ tabUrl, onLogout }: Props) {
     )
   }
 
+  function handleEdit(cred: SafeCredential) {
+    chrome.runtime.sendMessage(
+      { type: 'GET_FULL_CREDENTIAL', path: cred.path },
+      (res) => {
+        if (!res?.ok || !res.data) { showToast('Failed to fetch credential'); return }
+        const full = res.data as Credential
+        setEditCred({ path: full.path, fields: full.fields })
+      },
+    )
+  }
+
+  function handleEditSaved() {
+    setEditCred(null)
+    showToast('Updated in Vault!')
+    setLoading(true)
+    chrome.runtime.sendMessage(
+      { type: 'GET_MATCHING_CREDENTIALS', payload: { tabUrl } },
+      (res) => {
+        setLoading(false)
+        if (res?.ok) setMatched(res.data as SafeCredential[])
+      },
+    )
+  }
+
   function handleNewSaved() {
     setShowNew(false)
     showToast('Saved to Vault!')
@@ -97,6 +122,18 @@ export function CredentialList({ tabUrl, onLogout }: Props) {
         setLoading(false)
         if (res?.ok) setMatched(res.data as SafeCredential[])
       },
+    )
+  }
+
+  if (editCred) {
+    return (
+      <NewCredential
+        defaultPath={editCred.path}
+        initialFields={editCred.fields}
+        isEdit
+        onSaved={handleEditSaved}
+        onCancel={() => setEditCred(null)}
+      />
     )
   }
 
@@ -180,6 +217,7 @@ export function CredentialList({ tabUrl, onLogout }: Props) {
             cred={cred}
             onFill={handleFill}
             onCopyField={handleCopyField}
+            onEdit={handleEdit}
           />
         ))}
       </div>
@@ -193,9 +231,10 @@ interface ItemProps {
   cred: SafeCredential
   onFill: (c: SafeCredential) => void
   onCopyField: (c: SafeCredential, key: string) => void
+  onEdit: (c: SafeCredential) => void
 }
 
-function CredentialItem({ cred, onFill, onCopyField }: ItemProps) {
+function CredentialItem({ cred, onFill, onCopyField, onEdit }: ItemProps) {
   const subtitle = cred.username ?? cred.url ?? cred.path
   return (
     <div style={s.item}>
@@ -211,6 +250,9 @@ function CredentialItem({ cred, onFill, onCopyField }: ItemProps) {
         )}
         <button style={s.iconBtn} title="Copy password" onClick={() => onCopyField(cred, 'password')}>
           <KeyIcon />
+        </button>
+        <button style={s.iconBtn} title="Edit" onClick={() => onEdit(cred)}>
+          <EditIcon />
         </button>
         <button style={{ ...s.iconBtn, ...s.fillBtn }} title="Autofill" onClick={() => onFill(cred)}>
           <FillIcon />
@@ -234,6 +276,9 @@ function UserIcon() {
 }
 function KeyIcon() {
   return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+}
+function EditIcon() {
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
 }
 function FillIcon() {
   return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>

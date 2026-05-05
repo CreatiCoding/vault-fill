@@ -2,6 +2,8 @@ import { useState } from 'preact/hooks'
 
 interface Props {
   defaultPath: string  // pre-filled from current tab URL
+  initialFields?: Record<string, string>  // pre-filled for edit mode
+  isEdit?: boolean
   onSaved: () => void
   onCancel: () => void
 }
@@ -11,13 +13,21 @@ interface Field {
   value: string
 }
 
-export function NewCredential({ defaultPath, onSaved, onCancel }: Props) {
+function defaultFieldsFromRecord(record: Record<string, string>): Field[] {
+  return Object.entries(record).map(([key, value]) => ({ key, value }))
+}
+
+export function NewCredential({ defaultPath, initialFields, isEdit, onSaved, onCancel }: Props) {
   const [path, setPath] = useState(defaultPath)
-  const [fields, setFields] = useState<Field[]>([
-    { key: 'username', value: '' },
-    { key: 'password', value: '' },
-    { key: 'url', value: '' },
-  ])
+  const [fields, setFields] = useState<Field[]>(
+    initialFields && Object.keys(initialFields).length > 0
+      ? defaultFieldsFromRecord(initialFields)
+      : [
+          { key: 'username', value: '' },
+          { key: 'password', value: '' },
+          { key: 'url', value: '' },
+        ],
+  )
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -71,17 +81,18 @@ export function NewCredential({ defaultPath, onSaved, onCancel }: Props) {
         <button style={s.backBtn} onClick={onCancel} title="Back">
           <BackIcon />
         </button>
-        <span style={s.title}>New Secret</span>
+        <span style={s.title}>{isEdit ? 'Edit Secret' : 'New Secret'}</span>
       </div>
 
       <form onSubmit={handleSubmit} style={s.form}>
         <label style={s.label}>
           Path
           <input
-            style={s.input}
+            style={{ ...s.input, ...(isEdit ? s.inputDisabled : {}) }}
             type="text"
             value={path}
-            onInput={(e) => setPath((e.target as HTMLInputElement).value)}
+            readOnly={isEdit}
+            onInput={(e) => !isEdit && setPath((e.target as HTMLInputElement).value)}
             placeholder="e.g. web/github.com"
           />
         </label>
@@ -119,7 +130,7 @@ export function NewCredential({ defaultPath, onSaved, onCancel }: Props) {
         {error && <p style={s.error}>{error}</p>}
 
         <button style={s.submitBtn} type="submit" disabled={loading}>
-          {loading ? 'Saving…' : 'Save to Vault'}
+          {loading ? 'Saving…' : isEdit ? 'Update Secret' : 'Save to Vault'}
         </button>
       </form>
     </div>
@@ -145,6 +156,7 @@ const s: Record<string, preact.JSX.CSSProperties> = {
   fieldsHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
   addFieldBtn: { background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: '12px', fontWeight: '600', padding: '2px 0' },
   fieldRow: { display: 'flex', gap: '6px', alignItems: 'center' },
+  inputDisabled: { opacity: 0.6, cursor: 'default' },
   fieldKey: { width: '38%', flexShrink: 0 },
   fieldVal: { flex: 1 },
   removeBtn: { background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '16px', padding: '0 4px', lineHeight: 1 },
