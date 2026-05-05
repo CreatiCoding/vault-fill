@@ -153,6 +153,81 @@ corepack yarn test:all
 
 ---
 
+## Chrome Web Store 배포
+
+### 사전 준비
+
+1. [Google Developer Dashboard](https://chrome.google.com/webstore/devconsole) 계정 등록 (최초 1회 $5 등록비)
+2. 아이콘 준비: `public/icons/` 에 PNG 형식으로
+   - `icon16.png` (16×16)
+   - `icon48.png` (48×48)
+   - `icon128.png` (128×128)
+3. 스크린샷 최소 1장 (1280×800 또는 640×400)
+
+### 1. 프로덕션 빌드
+
+```bash
+corepack yarn build
+```
+
+`services/extension/dist/` 디렉토리가 생성됩니다.
+
+### 2. ZIP 패키징
+
+```bash
+cd services/extension/dist
+zip -r ../vault-fill.zip .
+```
+
+또는 프로젝트 루트에서:
+
+```bash
+cd services/extension && zip -r vault-fill.zip dist/
+```
+
+> `dist/` 디렉토리 안의 파일들을 직접 압축해야 합니다. `dist/` 폴더 자체를 압축하면 업로드 시 오류가 납니다.
+
+### 3. Developer Dashboard 업로드
+
+1. [Developer Dashboard](https://chrome.google.com/webstore/devconsole) 접속
+2. **새 항목 추가** 클릭
+3. `vault-fill.zip` 업로드
+4. 스토어 등록 정보 작성:
+   - 설명, 카테고리 (`생산성`), 언어
+   - 스크린샷, 프로모션 이미지 업로드
+5. **개인정보 처리방침** URL 입력 (필수)
+6. **권한 정당성** 작성 — 요청한 권한(`storage`, `activeTab`, `tabs`)의 사용 목적 명시
+
+### 4. 심사 제출
+
+- **검토를 위해 제출** 클릭
+- 최초 심사: 영업일 기준 1~3일 소요
+- 업데이트 심사: 수 시간 ~ 1일
+
+### 업데이트 배포
+
+```bash
+# 1. package.json 과 manifest.json 의 version bump
+# 2. 재빌드
+corepack yarn build
+
+# 3. 재패키징
+cd services/extension && zip -r vault-fill.zip dist/
+
+# 4. Dashboard → 기존 항목 선택 → 패키지 업로드 → 새 ZIP 업로드 → 제출
+```
+
+### 심사 거절 주요 사유 및 대응
+
+| 사유 | 대응 |
+|------|------|
+| 과도한 권한 요청 | `host_permissions`를 `<all_urls>` 대신 특정 도메인으로 제한 |
+| 개인정보 처리방침 미비 | 외부 URL 또는 GitHub Pages로 정책 페이지 추가 |
+| 원격 코드 실행 | `eval`, `new Function()` 사용 금지 (이미 준수) |
+| 설명과 기능 불일치 | 스토어 설명에 Vault 연동 방식 명확히 기재 |
+
+---
+
 ## 빌드 원칙 (Yarn Berry PnP)
 
 ### Docker 배포 시
