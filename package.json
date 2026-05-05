@@ -1,15 +1,14 @@
 {
-  "name": "hello-world",
+  "name": "vault-fill",
   "private": true,
   "workspaces": [
     "services/*",
     "packages/*"
   ],
   "scripts": {
-    "dev": "yarn workspace @hello-world/service dev",
-    "build": "yarn workspace @hello-world/service build",
-    "start": "yarn workspace @hello-world/service start",
-    "lint": "yarn workspace @hello-world/service lint"
+    "dev": "yarn workspace @vault-fill/extension dev",
+    "build": "yarn workspace @vault-fill/extension build",
+    "typecheck": "yarn workspace @vault-fill/extension typecheck"
   },
   "packageManager": "yarn@4.6.0",
   "devDependencies": {
