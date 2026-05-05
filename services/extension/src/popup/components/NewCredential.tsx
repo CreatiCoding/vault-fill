@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks'
+import { useState, useCallback } from 'preact/hooks'
 
 interface Props {
   defaultPath: string  // pre-filled from current tab URL
@@ -30,6 +30,15 @@ export function NewCredential({ defaultPath, initialFields, isEdit, onSaved, onC
   )
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [revealed, setRevealed] = useState<Set<number>>(new Set())
+
+  const toggleReveal = useCallback((i: number) => {
+    setRevealed((prev) => {
+      const next = new Set(prev)
+      next.has(i) ? next.delete(i) : next.add(i)
+      return next
+    })
+  }, [])
 
   function updateField(index: number, part: 'key' | 'value', val: string) {
     setFields((prev) => prev.map((f, i) => (i === index ? { ...f, [part]: val } : f)))
@@ -102,30 +111,41 @@ export function NewCredential({ defaultPath, initialFields, isEdit, onSaved, onC
           <button type="button" style={s.addFieldBtn} onClick={addField}>+ Add field</button>
         </div>
 
-        {fields.map((f, i) => (
-          <div key={i} style={s.fieldRow}>
-            <input
-              style={{ ...s.input, ...s.fieldKey }}
-              type="text"
-              value={f.key}
-              onInput={(e) => updateField(i, 'key', (e.target as HTMLInputElement).value)}
-              placeholder="key"
-            />
-            <input
-              style={{ ...s.input, ...s.fieldVal }}
-              type={f.key === 'password' || f.key === 'pass' || f.key === 'secret' ? 'password' : 'text'}
-              value={f.value}
-              onInput={(e) => updateField(i, 'value', (e.target as HTMLInputElement).value)}
-              placeholder="value"
-            />
-            <button
-              type="button"
-              style={s.removeBtn}
-              onClick={() => removeField(i)}
-              title="Remove"
-            >×</button>
-          </div>
-        ))}
+        {fields.map((f, i) => {
+          const isSecret = f.key === 'password' || f.key === 'pass' || f.key === 'secret'
+          const show = revealed.has(i)
+          return (
+            <div key={i} style={s.fieldRow}>
+              <input
+                style={{ ...s.input, ...s.fieldKey }}
+                type="text"
+                value={f.key}
+                onInput={(e) => updateField(i, 'key', (e.target as HTMLInputElement).value)}
+                placeholder="key"
+              />
+              <div style={s.fieldValWrap}>
+                <input
+                  style={{ ...s.input, ...s.fieldVal }}
+                  type={isSecret && !show ? 'password' : 'text'}
+                  value={f.value}
+                  onInput={(e) => updateField(i, 'value', (e.target as HTMLInputElement).value)}
+                  placeholder="value"
+                />
+                {isSecret && (
+                  <button type="button" style={s.eyeBtn} onClick={() => toggleReveal(i)} title={show ? 'Hide' : 'Show'}>
+                    {show ? <EyeOffIcon /> : <EyeIcon />}
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                style={s.removeBtn}
+                onClick={() => removeField(i)}
+                title="Remove"
+              >×</button>
+            </div>
+          )
+        })}
 
         {error && <p style={s.error}>{error}</p>}
 
@@ -138,11 +158,13 @@ export function NewCredential({ defaultPath, initialFields, isEdit, onSaved, onC
 }
 
 function BackIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="15 18 9 12 15 6" />
-    </svg>
-  )
+  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+}
+function EyeIcon() {
+  return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+}
+function EyeOffIcon() {
+  return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
 }
 
 const s: Record<string, preact.JSX.CSSProperties> = {
@@ -158,7 +180,9 @@ const s: Record<string, preact.JSX.CSSProperties> = {
   fieldRow: { display: 'flex', gap: '6px', alignItems: 'center' },
   inputDisabled: { opacity: 0.6, cursor: 'default' },
   fieldKey: { width: '38%', flexShrink: 0 },
-  fieldVal: { flex: 1 },
+  fieldValWrap: { flex: 1, position: 'relative', display: 'flex', alignItems: 'center' },
+  fieldVal: { flex: 1, paddingRight: '26px' },
+  eyeBtn: { position: 'absolute', right: '6px', background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: '0', display: 'flex', alignItems: 'center' },
   removeBtn: { background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '16px', padding: '0 4px', lineHeight: 1 },
   error: { color: 'var(--danger)', fontSize: '12px' },
   submitBtn: { background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', marginTop: '4px' },
