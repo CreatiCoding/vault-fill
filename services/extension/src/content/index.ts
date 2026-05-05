@@ -55,9 +55,9 @@ let autoFilled = false
 function tryAutoFill() {
   if (autoFilled) return
   const passEl = findPasswordField()
+  if (!passEl) return  // no password field = not a login form, skip
   const userEl = findUsernameField()
-  if (!passEl && !userEl) return
-  if (userEl?.value || passEl?.value) return  // already has content
+  if (userEl?.value || passEl.value) return  // already has content
 
   chrome.runtime.sendMessage(
     { type: 'GET_MATCHING_CREDENTIALS', payload: { tabUrl: window.location.href } },
